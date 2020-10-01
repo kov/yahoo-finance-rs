@@ -61,7 +61,11 @@ impl Streamer {
 
             // we're still running - so get a message and send it out.
             // TODO - change this to WAIT on receive so that we don't block shutdown
-            let msg = rx.recv().unwrap();
+            let msg = if let Ok(msg) = rx.recv() {
+                  msg
+            } else {
+                  break;
+            };
             sink.send(msg).await.unwrap();
          }
       });
@@ -70,6 +74,9 @@ impl Streamer {
       let shutdown = self.shutdown.clone();
       source
          .filter_map(move |msg| {
+            if let Err(_) = msg {
+               return future::ready(None);
+            }
             match msg.unwrap() {
                Message::Ping(_) => { pong_tx.send(Message::Pong("pong".as_bytes().to_vec())).unwrap(); },
                Message::Close(_) => { *(shutdown.lock().unwrap()) = true; },
